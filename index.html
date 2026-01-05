@@ -1,59 +1,198 @@
-<div>Teachable Machine Image Model</div>
-<button type="button" onclick="init()">Start</button>
-<div id="webcam-container"></div>
-<div id="label-container"></div>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Posture Care</title>
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.css" />
+    <style>
+        :root {
+            /* 상태별 배경 그라데이션 */
+            --bg-good: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
+            --bg-warning: linear-gradient(135deg, #feb47b 0%, #ff7e5f 100%);
+            --card-bg: rgba(255, 255, 255, 0.4);
+        }
+
+        body {
+            font-family: 'Pretendard', sans-serif;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #f0f2f5; /* 초기 배경 */
+            transition: background 0.8s ease-in-out;
+            color: #2d3436;
+        }
+
+        /* 배경 클래스 */
+        body.state-good { background: var(--bg-good); }
+        body.state-warning { background: var(--bg-warning); }
+
+        .app-container {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 40px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255,255,255,0.3);
+            text-align: center;
+            max-width: 450px;
+            width: 90%;
+        }
+
+        h1 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+        p { font-size: 15px; color: #636e72; margin-bottom: 25px; }
+
+        #webcam-container {
+            margin: 20px auto;
+            width: 280px;
+            height: 280px;
+            border-radius: 50%; /* 웹캠을 동그랗게 */
+            overflow: hidden;
+            border: 8px solid rgba(255,255,255,0.5);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            background: #eee;
+        }
+
+        #webcam-container canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 10px 24px;
+            border-radius: 50px;
+            background: white;
+            font-weight: 700;
+            font-size: 18px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+
+        #label-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .prediction-bar {
+            background: rgba(255,255,255,0.5);
+            border-radius: 12px;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .start-btn {
+            background: #2d3436;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 15px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .start-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <h1>Posturify AI</h1>
+    <p id="sub-title">바른 자세를 유지하고 있는지 확인합니다.</p>
+    
+    <div id="status-display" class="status-badge" style="display: none;">준비 중...</div>
+    
+    <div id="webcam-container"></div>
+    
+    <button type="button" class="start-btn" id="start-btn" onclick="init()">AI 분석 시작하기</button>
+    
+    <div id="label-container"></div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
 <script type="text/javascript">
-    // More API functions here:
-    // https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/image
-
-    // the link to your model provided by Teachable Machine export panel
     const URL = "https://teachablemachine.withgoogle.com/models/w75O_Hj68/";
-
     let model, webcam, labelContainer, maxPredictions;
+    const statusDisplay = document.getElementById("status-display");
 
-    // Load the image model and setup the webcam
     async function init() {
+        document.getElementById("start-btn").style.display = "none";
+        statusDisplay.style.display = "inline-block";
+        
         const modelURL = URL + "model.json";
         const metadataURL = URL + "metadata.json";
 
-        // load the model and metadata
-        // Refer to tmImage.loadFromFiles() in the API to support files from a file picker
-        // or files from your local hard drive
-        // Note: the pose library adds "tmImage" object to your window (window.tmImage)
         model = await tmImage.load(modelURL, metadataURL);
         maxPredictions = model.getTotalClasses();
 
-        // Convenience function to setup a webcam
-        const flip = true; // whether to flip the webcam
-        webcam = new tmImage.Webcam(200, 200, flip); // width, height, flip
-        await webcam.setup(); // request access to the webcam
+        const flip = true; 
+        webcam = new tmImage.Webcam(280, 280, flip); 
+        await webcam.setup(); 
         await webcam.play();
         window.requestAnimationFrame(loop);
 
-        // append elements to the DOM
         document.getElementById("webcam-container").appendChild(webcam.canvas);
         labelContainer = document.getElementById("label-container");
-        for (let i = 0; i < maxPredictions; i++) { // and class labels
-            labelContainer.appendChild(document.createElement("div"));
+        for (let i = 0; i < maxPredictions; i++) {
+            const div = document.createElement("div");
+            div.className = "prediction-bar";
+            labelContainer.appendChild(div);
         }
     }
 
     async function loop() {
-        webcam.update(); // update the webcam frame
+        webcam.update(); 
         await predict();
         window.requestAnimationFrame(loop);
     }
 
-    // run the webcam image through the image model
     async function predict() {
-        // predict can take in an image, video or canvas html element
         const prediction = await model.predict(webcam.canvas);
+        let goodPostureScore = 0;
+
         for (let i = 0; i < maxPredictions; i++) {
-            const classPrediction =
-                prediction[i].className + ": " + prediction[i].probability.toFixed(2);
-            labelContainer.childNodes[i].innerHTML = classPrediction;
+            const className = prediction[i].className;
+            const probability = prediction[i].probability.toFixed(2);
+            
+            labelContainer.childNodes[i].innerHTML = `
+                <span>${className}</span>
+                <span>${Math.round(probability * 100)}%</span>
+            `;
+
+            // '바른자세' 또는 'Good' 키워드가 들어간 클래스의 점수를 파악
+            if (className.includes("바른자세") || className.includes("Good") || i === 0) {
+                goodPostureScore = prediction[i].probability;
+            }
+        }
+
+        updateTheme(goodPostureScore);
+    }
+
+    function updateTheme(score) {
+        if (score > 0.5) {
+            document.body.className = "state-good";
+            statusDisplay.innerText = "✨ 바른 자세입니다";
+            statusDisplay.style.color = "#0984e3";
+        } else {
+            document.body.className = "state-warning";
+            statusDisplay.innerText = "⚠️ 자세를 바로 잡으세요!";
+            statusDisplay.style.color = "#d63031";
         }
     }
 </script>
+
+</body>
+</html>
