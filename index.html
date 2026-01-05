@@ -1,196 +1,59 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Premium Gradient To-Do</title>
-    <style>
-        :root {
-            --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            --card-bg: rgba(255, 255, 255, 0.9);
-            --accent-color: #764ba2;
+<div>Teachable Machine Image Model</div>
+<button type="button" onclick="init()">Start</button>
+<div id="webcam-container"></div>
+<div id="label-container"></div>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+<script type="text/javascript">
+    // More API functions here:
+    // https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/image
+
+    // the link to your model provided by Teachable Machine export panel
+    const URL = "https://teachablemachine.withgoogle.com/models/w75O_Hj68/";
+
+    let model, webcam, labelContainer, maxPredictions;
+
+    // Load the image model and setup the webcam
+    async function init() {
+        const modelURL = URL + "model.json";
+        const metadataURL = URL + "metadata.json";
+
+        // load the model and metadata
+        // Refer to tmImage.loadFromFiles() in the API to support files from a file picker
+        // or files from your local hard drive
+        // Note: the pose library adds "tmImage" object to your window (window.tmImage)
+        model = await tmImage.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
+
+        // Convenience function to setup a webcam
+        const flip = true; // whether to flip the webcam
+        webcam = new tmImage.Webcam(200, 200, flip); // width, height, flip
+        await webcam.setup(); // request access to the webcam
+        await webcam.play();
+        window.requestAnimationFrame(loop);
+
+        // append elements to the DOM
+        document.getElementById("webcam-container").appendChild(webcam.canvas);
+        labelContainer = document.getElementById("label-container");
+        for (let i = 0; i < maxPredictions; i++) { // and class labels
+            labelContainer.appendChild(document.createElement("div"));
         }
-
-        body {
-            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
-            background: var(--bg-gradient);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin: 0;
-            color: #333;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 400px;
-            padding: 20px;
-        }
-
-        .todo-card {
-            background: var(--card-bg);
-            backdrop-filter: blur(10px);
-            border-radius: 24px;
-            padding: 30px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
-        }
-
-        h2 {
-            margin-top: 0;
-            font-weight: 700;
-            background: var(--bg-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-align: center;
-        }
-
-        .input-group {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
-        input[type="text"] {
-            flex: 1;
-            border: 2px solid #eee;
-            border-radius: 12px;
-            padding: 12px 15px;
-            outline: none;
-            transition: border-color 0.3s;
-        }
-
-        input[type="text"]:focus {
-            border-color: var(--accent-color);
-        }
-
-        button#add-btn {
-            background: var(--bg-gradient);
-            border: none;
-            color: white;
-            padding: 12px 20px;
-            border-radius: 12px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: transform 0.2s;
-        }
-
-        button#add-btn:active {
-            transform: scale(0.95);
-        }
-
-        ul {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        li {
-            background: white;
-            margin-bottom: 12px;
-            padding: 15px;
-            border-radius: 15px;
-            display: flex;
-            align-items: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            animation: slideUp 0.4s ease forwards;
-            transition: all 0.4s ease;
-        }
-
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .fade-out {
-            opacity: 0;
-            transform: translateX(30px);
-        }
-
-        .checkbox {
-            width: 22px;
-            height: 22px;
-            border: 2px solid var(--accent-color);
-            border-radius: 50%;
-            margin-right: 15px;
-            cursor: pointer;
-            position: relative;
-            transition: all 0.3s;
-        }
-
-        .checkbox:hover {
-            background: rgba(118, 75, 162, 0.1);
-        }
-
-        .todo-text {
-            flex: 1;
-            font-size: 16px;
-        }
-
-        .completed-mark {
-            display: none;
-        }
-    </style>
-</head>
-<body>
-
-<div class="container">
-    <div class="todo-card">
-        <h2>Today's Focus</h2>
-        <div class="input-group">
-            <input type="text" id="todo-input" placeholder="무엇을 해볼까요?" onkeypress="if(event.keyCode==13) addTodo()">
-            <button id="add-btn" onclick="addTodo()">추가</button>
-        </div>
-        <ul id="todo-list">
-            </ul>
-    </div>
-</div>
-
-<script>
-    function addTodo() {
-        const input = document.getElementById('todo-input');
-        const list = document.getElementById('todo-list');
-        
-        if (input.value.trim() === '') return;
-
-        // 리스트 아이템 생성
-        const li = document.createElement('li');
-        
-        // 체크 버튼 생성
-        const checkbox = document.createElement('div');
-        checkbox.className = 'checkbox';
-        checkbox.onclick = function() {
-            completeTodo(li);
-        };
-
-        // 텍스트 생성
-        const textSpan = document.createElement('span');
-        textSpan.className = 'todo-text';
-        textSpan.innerText = input.value;
-
-        li.appendChild(checkbox);
-        li.appendChild(textSpan);
-        list.appendChild(li);
-
-        input.value = '';
     }
 
-    function completeTodo(element) {
-        // 완료 애니메이션 적용
-        element.style.background = '#f8f9fa';
-        element.querySelector('.checkbox').style.background = 'var(--accent-color)';
-        element.querySelector('.todo-text').style.textDecoration = 'line-through';
-        element.querySelector('.todo-text').style.color = '#aaa';
-        
-        // 0.6초 뒤에 목록에서 제거 (세련된 사라짐 효과)
-        setTimeout(() => {
-            element.classList.add('fade-out');
-            setTimeout(() => {
-                element.remove();
-            }, 400);
-        }, 300);
+    async function loop() {
+        webcam.update(); // update the webcam frame
+        await predict();
+        window.requestAnimationFrame(loop);
+    }
+
+    // run the webcam image through the image model
+    async function predict() {
+        // predict can take in an image, video or canvas html element
+        const prediction = await model.predict(webcam.canvas);
+        for (let i = 0; i < maxPredictions; i++) {
+            const classPrediction =
+                prediction[i].className + ": " + prediction[i].probability.toFixed(2);
+            labelContainer.childNodes[i].innerHTML = classPrediction;
+        }
     }
 </script>
-
-</body>
-</html>
